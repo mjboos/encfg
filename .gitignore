@@ -1,0 +1,6 @@
+*.nii.gz
+*.pkl
+*.ipynb
+*.sh
+*.pyc
+*.npy
