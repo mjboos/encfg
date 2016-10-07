@@ -6,7 +6,7 @@ from sklearn.externals import joblib
 import matplotlib.pyplot as plt
 from json import load
 from nilearn.plotting import plot_stat_map
-from nilearn.masking import unmask
+from nilearn.masking import unmask, apply_mask
 from nilearn.image import threshold_img
 import sys
 from sklearn.mixture import log_multivariate_normal_density
@@ -115,12 +115,43 @@ def load_data_new(subj, model='logBSC_H200', metric='r2'):
 
     model_preds = joblib.load(spenc_dir + ('MaThe/predictions/'
                              '{}_subj_{}_all.pkl').format(model, subj))
-
-    scores_model = metric_functions[metric](model_preds, fmri_data)
+    if metric in ('p', 'p_adj'):
+        scores_model = metric_functions['r'](model_preds, fmri_data)
+    else:
+        scores_model = metric_functions[metric](model_preds, fmri_data)
 
     return Encoding(fmri_data, model_preds,
                     scores_model, metric=metric)
 
+
+def load_fmri(subj, prefix=''):
+    '''Loads fmri data'''
+    fmri_data = np.hstack(
+            [joblib.load(('/home/data/scratch/mboos/prepro/' + prefix + \
+                          'fmri_subj_{}_split_{}.pkl').format(subj, i))
+                for i in xrange(10)]).astype('float32')
+    return fmri_data
+
+def load_data_whole(subj, model='logBSC_H200', metric='r'):
+    '''Loads data and returns them as an Encoding instance'''
+    fmri_data = np.hstack(
+            [joblib.load(('/home/data/scratch/mboos/prepro/'
+                          'whole_fmri_subj_{}_split_{}.pkl').format(subj, i))
+                for i in xrange(10)]).astype('float32')
+
+    subj_mask_lobe = spenc_dir+'temporal_lobe_mask_brain_subj{0:02}bold.nii.gz'.format(subj)
+    subj_mask_brain = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}'.format(subj) + '/templates/bold7Tp1/brain_mask.nii.gz'
+    img = unmask(fmri_data, mask_img=subj_mask_brain)
+    fmri_data = apply_mask(img, subj_mask_lobe)
+    model_preds = joblib.load(spenc_dir + ('MaThe/predictions/'
+                             '{}_subj_{}_all.pkl').format(model, subj))
+    if metric in ('p', 'p_adj'):
+        scores_model = metric_functions['r'](model_preds, fmri_data)
+    else:
+        scores_model = metric_functions[metric](model_preds, fmri_data)
+
+    return Encoding(fmri_data, model_preds,
+                    scores_model, metric=metric)
 
 
 def load_data(subj, model='logBSC_H200', metric='r2'):
@@ -161,7 +192,117 @@ def reconstruct_component(filtered_data, pca, component=0):
         preds_pc = filt_pc.dot(pca.components_)
     return preds_pc.astype('float32')
 
-def plot_subj(subj, scores, threshold=0.01, coords=None):
+def plot_diff(subj, scores, threshold=0.01, coords=None, cross=False, **kwargs):
+    '''plots subject scoremap using nilearn and returns display object'''
+    subj_mask = spenc_dir+'temporal_lobe_mask_brain_subj{0:02}bold.nii.gz'.format(subj)
+    background_img = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}/'.format(subj)+\
+            'templates/bold7Tp1/brain.nii.gz'
+    scores = scores.copy()
+    scores[np.abs(scores)<threshold] = 0.0
+    unmasked = unmask(scores, subj_mask)
+    unmasked = threshold_img(unmasked, 0.001)
+    display = plot_stat_map(
+                    unmasked, cut_coords=coords, bg_img=background_img,
+                    title='metric per voxel', dim=-1, aspect=1.25,
+                    threshold=0.001, draw_cross=cross, **kwargs)
+    fig = plt.gcf()
+    fig.set_size_inches(12, 4)
+    return display
+
+def plot_diff_avg_whole(scores, threshold=0.01, coords=None, **kwargs):
+    '''plots subject scoremap using nilearn and returns display object'''
+    mask = spenc_dir+'brainmask_group_template.nii.gz'
+    background_img = '/home/data/psyinf/forrest_gump/anondata/templates/' + \
+            'grpbold7Tp1/brain.nii.gz'
+    scores = scores.copy()
+    scores[np.abs(scores)<threshold] = 0.0
+    unmasked = unmask(scores, mask)
+    unmasked = threshold_img(unmasked, 0.001)
+    display = plot_stat_map(
+                    unmasked, cut_coords=coords, bg_img=background_img,
+                    dim=-1, aspect=1.25,
+                    threshold=0.001, **kwargs)
+    fig = plt.gcf()
+    fig.set_size_inches(12, 4)
+    return display
+
+def plot_diff_avg(scores, threshold=0.01, coords=None, cross=False, **kwargs):
+    '''plots subject scoremap using nilearn and returns display object'''
+    mask = spenc_dir+'temporal_lobe_mask_grp_7T_test.nii.gz'
+    background_img = '/home/data/psyinf/forrest_gump/anondata/templates/' + \
+            'grpbold7Tp1/brain.nii.gz'
+    scores = scores.copy()
+    scores[np.abs(scores)<threshold] = 0.0
+    unmasked = unmask(scores, mask)
+    unmasked = threshold_img(unmasked, 0.001)
+    display = plot_stat_map(
+                    unmasked, cut_coords=coords, bg_img=background_img,
+                    title='metric per voxel', dim=-1, aspect=1.25,
+                    threshold=0.001, draw_cross=cross, **kwargs)
+    fig = plt.gcf()
+    fig.set_size_inches(12, 4)
+    return display
+
+def plot_avg(scores, threshold=0.01, coords=None, cross=False, **kwargs):
+    '''plots subject scoremap using nilearn and returns display object'''
+    mask = spenc_dir+'temporal_lobe_mask_grp_7T_test.nii.gz'
+    background_img = '/home/data/psyinf/forrest_gump/anondata/templates/' + \
+            'grpbold7Tp1/brain.nii.gz'
+    scores = scores.copy()
+    scores[scores<threshold] = 0.0
+    unmasked = unmask(scores, mask)
+    unmasked = threshold_img(unmasked, 0.001)
+    display = plot_stat_map(
+                    unmasked, cut_coords=coords, bg_img=background_img,
+                    symmetric_cbar=False,
+                    dim=-1, aspect=1.25,
+                    threshold=0.001, draw_cross=cross, **kwargs)
+    fig = plt.gcf()
+    fig.set_size_inches(12, 4)
+    return display
+
+def plot_whole_subj(subj, scores, threshold=0.01, coords=None, cross=False):
+    '''plots subject scoremap using nilearn and returns display object'''
+    subj_mask = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}'.format(subj) + '/templates/bold7Tp1/brain_mask.nii.gz'
+
+    background_img = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}/'.format(subj)+\
+            'templates/bold7Tp1/brain.nii.gz'
+    scores = scores.copy()
+    scores[scores<threshold] = 0.0
+    unmasked = unmask(scores, subj_mask)
+    unmasked = threshold_img(unmasked, 0.001)
+    display = plot_stat_map(
+                    unmasked, cut_coords=coords, bg_img=background_img,
+                    symmetric_cbar=False,
+                    title='metric per voxel', dim=-1, aspect=1.25,
+                    threshold=0.001, draw_cross=cross)
+    fig = plt.gcf()
+    fig.set_size_inches(12, 4)
+    return display
+
+
+def plot_whole_subj_diff(subj, scores, threshold=0.01, coords=None, cross=False, **kwargs):
+    '''plots subject scoremap using nilearn and returns display object'''
+    subj_mask = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}'.format(subj) + '/templates/bold7Tp1/brain_mask.nii.gz'
+
+    background_img = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}/'.format(subj)+\
+            'templates/bold7Tp1/brain.nii.gz'
+    scores = scores.copy()
+    scores[np.abs(scores)<threshold] = 0.0
+    unmasked = unmask(scores, subj_mask)
+    unmasked = threshold_img(unmasked, 0.001)
+    display = plot_stat_map(
+                    unmasked, cut_coords=coords, bg_img=background_img,
+                    symmetric_cbar=False,
+                    title='metric per voxel', dim=-1, aspect=1.25,
+                    threshold=0.001, draw_cross=cross, **kwargs)
+    fig = plt.gcf()
+    fig.set_size_inches(12, 4)
+    return display
+
+
+
+def plot_subj(subj, scores, threshold=0.01, coords=None, cross=False, **kwargs):
     '''plots subject scoremap using nilearn and returns display object'''
     subj_mask = spenc_dir+'temporal_lobe_mask_brain_subj{0:02}bold.nii.gz'.format(subj)
     background_img = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}/'.format(subj)+\
@@ -174,12 +315,44 @@ def plot_subj(subj, scores, threshold=0.01, coords=None):
                     unmasked, cut_coords=coords, bg_img=background_img,
                     symmetric_cbar=False,
                     title='metric per voxel', dim=-1, aspect=1.25,
-                    threshold=0.001, draw_cross=False)
+                    threshold=0.001, draw_cross=cross, **kwargs)
     fig = plt.gcf()
     fig.set_size_inches(12, 4)
     return display
 
-def save_map(subj, scores, threshold=0.0, model='logBSC_H200'):
+def save_map_avg(subj, scores, threshold=0.0, model='logBSC_H200'):
+    '''Saves brainmap as nifti file'''
+    mask = spenc_dir+'temporal_lobe_mask_grp_7T_test.nii.gz'
+    if threshold is not None:
+        scores[scores<threshold] = 0
+    unmasked = unmask(scores, mask)
+    unmasked.to_filename(
+            spenc_dir+'MaThe/maps/model_avg_{}_subj_'.format(model)+\
+                '{}_map.nii.gz'.format(subj))
+
+def save_map_avg_whole(scores, threshold=None, model='logBSC_H200'):
+    '''Saves brainmap as nifti file'''
+    mask = spenc_dir + 'brainmask_group_template.nii.gz'
+    if threshold is not None:
+        scores[scores<threshold] = 0
+    unmasked = unmask(scores, mask)
+    unmasked.to_filename(
+            spenc_dir+'MaThe/maps/model_{}_'.format(model)+\
+                'whole_avg_map.nii.gz')
+
+
+def save_map_whole(subj, scores, threshold=None, model='logBSC_H200'):
+    '''Saves brainmap as nifti file'''
+    subj_mask = '/home/data/psyinf/forrest_gump/anondata/sub{0:03}'.format(subj) + '/templates/bold7Tp1/brain_mask.nii.gz'
+    if threshold is not None:
+        scores[scores<threshold] = 0
+    unmasked = unmask(scores, subj_mask)
+    unmasked.to_filename(
+            spenc_dir+'MaThe/maps/model_{}_subj_'.format(model)+\
+                '{}_map.nii.gz'.format(subj))
+
+
+def save_map(subj, scores, threshold=None, model='logBSC_H200'):
     '''Saves brainmap as nifti file'''
     subj_mask = spenc_dir+'temporal_lobe_mask_brain'+\
             '_subj{0:02}bold.nii.gz'.format(subj)
@@ -190,23 +363,35 @@ def save_map(subj, scores, threshold=0.0, model='logBSC_H200'):
             spenc_dir+'MaThe/maps/model_{}_subj_'.format(model)+\
                 '{}_map.nii.gz'.format(subj))
 
-def who_speaks(idx, joint_speech):
+def who_speaks(dialog_idx, joint_speech):
     '''returns the speaker identity'''
-    if idx.size == 0:
-        return 'none'
-    elif 'person' not in joint_speech[idx[0]]['parsed']:
-        return 'NARRATOR'
-    return joint_speech[idx[0]]['parsed']['person']
+    if dialog_idx.size == 0:
+        return ['NONE']
+    speakers = []
+    return speakers + [joint_speech[idx]['parsed']['person'] if 'person' in (joint_speech[idx]['parsed']) else 'NARRATOR' for  idx in dialog_idx]
 
-def index_to_dialog(index):
+def index_to_time(index):
     index *= 2
     timeframe = 8 + np.array((-8, -2)) + index
-    return np.where(np.logical_not(np.logical_or(timeframe[0]>speech_arr[:, 1], timeframe[1]<speech_arr[:, 0])))
+    return timeframe
+
+def index_to_label(index, label_times):
+    timeframe = index_to_time(index)
+    where = np.where(np.logical_not(np.logical_or(timeframe[0]>label_times[:, 1], timeframe[1]<label_times[:, 0])))[0]
+    return where[0] if where.size != 0 else -1
+
+def index_to_scene(index, scene_times):
+    timeframe = index_to_time(index)
+    where = np.where(np.logical_not(np.logical_or(timeframe[0]>scene_times[:, 1], timeframe[1]<scene_times[:, 0])))[0]
+    return where[0] if where.size != 0 else -1
+
+def index_to_dialog(index):
+    timeframe = index_to_time(index)
+    return np.where(np.logical_not(np.logical_or(timeframe[0]>speech_arr[:, 1], timeframe[1]<speech_arr[:, 0])))[0]
 
 def compute_speech_overlap(index):
     '''Computes how much speech the sample contains in s'''
-    index *= 2
-    timeframe = 8 + np.array((-8, -2)) + index
+    timeframe = index_to_time(index)
     overlap_lb = np.max(np.hstack([np.repeat(timeframe[0],
         speech_arr.shape[0])[:, np.newaxis], speech_arr[:, 0][:, np.newaxis]]), axis=1)
     overlap_ub = np.min(np.hstack([np.repeat(timeframe[1],
@@ -254,7 +439,6 @@ def group_pca_sign_flip(mat, n_pb):
         mat[:, comp] = np.reshape(mat[:, comp], (n_pb, -1)).T.dot(rev_flags).T.flatten()
     return (mat, flip_hist)
 
-
 def reg_df(measures, fmri_pcs):
     '''Returns a dataframe of correlations for PCs'''
     import pandas as pd
@@ -278,7 +462,6 @@ def subj_flip(pred_pc, data_pc):
     for flip in flip_pcs:
         pred_pc[:, flip] *= -1
     return pred_pc
-
 
 def correlation_1d_df(measure, fmri_pcs):
     '''Returns a dataframe of correlations for PCs'''
@@ -341,36 +524,40 @@ def pca_enc_score(pca_predy, pca_y, pca_cov):
 
     return log_likelihood
 
-
-if __name__=='__main__':
-
-    if len(sys.argv) > 1:
-        subj = int(sys.argv[1])
+def compute_music_overlap(index):
+    '''Computes how much speech the sample contains in s'''
+    index *= 2
+    timeframe = 8 + np.array((-6, -2)) + index
+    overlap_lb = np.max(np.hstack([np.repeat(timeframe[0],
+        music_arr.shape[0])[:, np.newaxis], music_arr[:, 0][:, np.newaxis]]), axis=1)
+    overlap_ub = np.min(np.hstack([np.repeat(timeframe[1],
+        music_arr.shape[0])[:, np.newaxis], music_arr[:, 1][:, np.newaxis]]), axis=1)
+    overlap = (overlap_ub - overlap_lb) > 0
+    if not np.any(overlap):
+        return 0
     else:
-        subj = 18
-
-    subj_preprocessed_path = os.path.join(spenc_dir, 'PreProcessed',
-                                          'FG_subj%dpp.gzipped.hdf5' % subj)
-    with open('DialogData/german_dialog_20150211.json') as fh:
-        dialog = load(fh)
-    with open('DialogData/german_audio_description_20150211.json') as fh:
-        description = load(fh)
-
-    dialog_SE = [(anno['begin'],anno['end']) for anno in dialog['annotations']]
-    description_SE = [(anno['begin'],anno['end']) for anno in description['annotations']]
-    speech_SE = dialog_SE + description_SE
-
-    joint_speech = np.concatenate([np.array(dialog['annotations']), np.array(description['annotations'])])
-    joint_speech = joint_speech[np.argsort(np.array(speech_SE)[:,0])]
+        return (np.max(overlap_ub[overlap]) - np.min(overlap_lb[overlap]))
 
 
-    speech_arr = np.array(speech_SE)
-    speech_arr = speech_arr[np.argsort(speech_arr[:,0]),:]
+with open('DialogData/german_dialog_20150211.json') as fh:
+    dialog = load(fh)
+with open('DialogData/german_audio_description_20150211.json') as fh:
+    description = load(fh)
 
-    #MFS stepsize is 10ms, speech begin/end is in ms, so we divide by 10
-    speech_arr = speech_arr / 1000
+dialog_SE = [(anno['begin'],anno['end']) for anno in dialog['annotations']]
+description_SE = [(anno['begin'],anno['end']) for anno in description['annotations']]
+speech_SE = dialog_SE + description_SE
 
-    duration = np.array([902,882,876,976,924,878,1084,676])
+joint_speech = np.concatenate([np.array(dialog['annotations']), np.array(description['annotations'])])
+joint_speech = joint_speech[np.argsort(np.array(speech_SE)[:,0])]
 
-    mfs_ft = joblib.load('MaThe/prepro/logMFS_stimuli.pkl')
+speech_arr = np.array(speech_SE)
+speech_arr = speech_arr[np.argsort(speech_arr[:,0]),:]
+
+#MFS stepsize is 10ms, speech begin/end is in ms, so we divide by 10
+speech_arr = speech_arr / 1000
+
+music_arr = np.genfromtxt('music.csv', delimiter=',')[1:,:2]
+
+music_overlap = np.array([compute_music_overlap(i) for i in xrange(3539)])
 

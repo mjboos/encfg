@@ -10,7 +10,7 @@ subj = int(subj)
 
 spenc_dir = '/home/mboos/SpeechEncoding/'
 
-subj_preprocessed_path = 'PreProcessed/FG_subj{}pp.gzipped.hdf5'.format(subj)
+subj_preprocessed_path = 'PreProcessed/FG_subj{}.gzipped.hdf5'.format(subj)
 s1ds = mvpa.h5load(spenc_dir + subj_preprocessed_path)
 
 duration = np.array([902,882,876,976,924,878,1084,676])
@@ -30,6 +30,7 @@ fmri_data = fmri_data[:-1, :]
 
 # shape of TR samples
 fmri_data = fmri_data[3:]
+
 
 voxel_kfold = KFold(fmri_data.shape[1], n_folds=10)
 

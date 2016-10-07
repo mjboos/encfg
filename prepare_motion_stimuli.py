@@ -10,11 +10,12 @@ subj = int(subj)
 
 spenc_dir = '/home/mboos/SpeechEncoding/'
 
-subj_preprocessed_path = 'PreProcessed/FG_subj{}pp.gzipped.hdf5'.format(subj)
-s1ds = mvpa.h5load(spenc_dir + subj_preprocessed_path)
+motion = np.vstack([np.genfromtxt('/home/data/psyinf/forrest_gump/anondata/sub{0:03d}/BOLD/task001_run{1:03d}/bold_dico_moco.txt'.format(subj, run))
+                    for run in xrange(1, 9)])
 
 duration = np.array([902,882,876,976,924,878,1084,676])
-
+print(np.sum(duration))
+print(motion.shape)
 # i did not kick out the first/last 4 samples per run yet
 slice_nr_per_run = [dur/2 for dur in duration]
 
@@ -22,18 +23,13 @@ slice_nr_per_run = [dur/2 for dur in duration]
 idx_borders = np.cumsum(slice_nr_per_run[:-1])[:,np.newaxis] + \
               np.arange(-4,4)[np.newaxis,:]
 
-fmri_data = np.delete(s1ds.samples, idx_borders, axis=0)
+motion = np.delete(motion, idx_borders, axis=0)
 
 # and we're going to remove the last fmri slice
 # since it does not correspond to a movie part anymore
-fmri_data = fmri_data[:-1, :]
+motion = motion[:-1, :]
 
 # shape of TR samples
-fmri_data = fmri_data[3:]
+motion = motion[3:]
 
-voxel_kfold = KFold(fmri_data.shape[1], n_folds=10)
-
-for i, (_, split) in enumerate(voxel_kfold):
-    dump(fmri_data[:, split],
-         '/home/data/scratch/mboos/prepro/fmri_subj_{}_split_{}.pkl'.format(subj, i),
-         compress=3)
+dump(motion, spenc_dir+'MaThe/prepro/motion_{}_stimuli.pkl'.format(subj))

@@ -34,9 +34,6 @@ datapath = os.path.join('/home','data','psyinf','forrest_gump','anondata')
 #boldlist = sorted(glob.glob(os.path.join(datapath,'task002*')))
 flavor = 'dico_bold7Tp1_to_subjbold7Tp1'
 
-
-
-
 for subj in xrange(1,20):
     mask_fname = os.path.join('/home','mboos','SpeechEncoding','temporal_lobe_mask_brain_subj%02dbold.nii.gz' % subj)
 

@@ -22,11 +22,6 @@ mfs_list = glob.glob(spenc_dir + 'AudioStimuli/8khzmax/*.mfs')
 feature_list = [np.genfromtxt(mfs_fn,delimiter=',')
                 for mfs_fn in sorted(mfs_list)]
 
-# cut values smaller 1 and take log
-for i in xrange(len(feature_list)):
-    feature_list[i][feature_list[i]<1] = 1
-    feature_list[i] = np.log(feature_list[i])
-
 ft_freq = feature_list[0].shape[1]
 
 def reduce_MFS(a, b):
@@ -54,10 +49,8 @@ features = np.reshape(features, (features.shape[0], -1))
 # we kick out the most recent sample
 features = features[:, :-20*ft_freq]
 
-features = np.mean(np.reshape(features, (features.shape[0], 3, 20, ft_freq)), axis=-2)
-features = np.reshape(features, (-1, 3*ft_freq))
-
-features = StandardScaler().fit_transform(features)
+# now compute the power
+features = (features**2).mean(axis=1)
 
 dump(features,
-     spenc_dir+'MaThe/prepro/logMFS_more_ds_stimuli.pkl')
+     spenc_dir+'MaThe/prepro/MFS_power_stimuli.pkl')

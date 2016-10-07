@@ -1,17 +1,16 @@
 from __future__ import division
+import mvpa2.suite as mvpa
 from joblib import load, dump
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+import sys
 
 spenc_dir = '/home/mboos/SpeechEncoding/'
 
 duration = np.array([902,882,876,976,924,878,1084,676])
 
 patches = load(spenc_dir+'MaThe/'+\
-                      'transformed_data/dict_learning_patches.pkl')
+                      'transformed_data/log_sparse_patches_H200_converged.pkl')
 
-# keep only every 10th sample so there's no overlap between the patches
-patches = patches[::10].copy()
 
 # the length of the movie segments without the transition TRs 
 # (like they are saved in patches)
@@ -44,8 +43,10 @@ patches = np.reshape(patches, (patches.shape[0], -1))
 # we kick out the most recent sample
 patches = patches[:, :-4000]
 
-patches = StandardScaler().fit_transform(patches)
+# average across 2s
+patches = np.mean(np.reshape(patches, (patches.shape[0], 6, 10, 200)), axis=-2)
+patches = np.reshape(patches, (-1, 1200))
 
 dump(patches,
-     spenc_dir+'MaThe/prepro/dict_stimuli.pkl')
+     spenc_dir+'MaThe/prepro/logBSC_H200_ds_conv_stimuli.pkl')
 

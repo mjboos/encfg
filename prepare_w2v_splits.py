@@ -54,10 +54,8 @@ features = np.reshape(features, (features.shape[0], -1))
 # we kick out the most recent sample
 features = features[:, :-20*ft_freq]
 
-features = np.mean(np.reshape(features, (features.shape[0], 3, 20, ft_freq)), axis=-2)
-features = np.reshape(features, (-1, 3*ft_freq))
 
 features = StandardScaler().fit_transform(features)
 
 dump(features,
-     spenc_dir+'MaThe/prepro/logMFS_more_ds_stimuli.pkl')
+     spenc_dir+'MaThe/prepro/logMFS_stimuli.pkl')
